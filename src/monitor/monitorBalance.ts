@@ -10,139 +10,139 @@ let lastEpoch = -1;
 
 /** Monitor the CELO and cUSD balances of all addresses specified in the addresses yaml file */
 export default class MonitorBalance extends MonitorBase {
-	protected async run() {
-		// This is expensive. Only run once every 10 runs.
-		if (++throttler % 10 == 0) {
-			// monitor our addresses
-			let totalGold = new BigNumber(0);
-			let totalLocked = new BigNumber(0);
-			let totalUsd = new BigNumber(0);
-			for (const address of this.addresses.addresses().keys()) {
-				const balance = await this.kit.getTotalBalance(address);
-				// Gather Totals
-				totalGold = totalGold.plus(balance.CELO || "0");
-				totalLocked = totalLocked.plus(balance.lockedCELO);
-				totalUsd = totalUsd.plus(balance.cUSD || "0");
+  protected async run() {
+    // This is expensive. Only run once every 10 runs.
+    if (++throttler % 10 == 0) {
+      // monitor our addresses
+      let totalGold = new BigNumber(0);
+      let totalLocked = new BigNumber(0);
+      let totalUsd = new BigNumber(0);
+      for (const address of this.addresses.addresses().keys()) {
+        const balance = await this.kit.getTotalBalance(address);
+        // Gather Totals
+        totalGold = totalGold.plus(balance.CELO || "0");
+        totalLocked = totalLocked.plus(balance.lockedCELO);
+        totalUsd = totalUsd.plus(balance.cUSD || "0");
 
-				// Record non-zero value metrics
-				const gold = weiToIntegerFloor(totalGold);
-				if (gold > 0) {
-					this.metrics.log("Gold", gold, this.addresses.alias(address));
-				}
-				const lockedGold = weiToIntegerFloor(totalLocked);
-				if (lockedGold > 0) {
-					this.metrics.log(
-						"LockedGold",
-						lockedGold,
-						this.addresses.alias(address)
-					);
-				}
-				const usd = weiToIntegerFloor(totalUsd);
-				if (usd > 0) {
-					this.metrics.log("USD", usd, this.addresses.alias(address));
-				}
-				// Monitor changing balances
-				this.monitorGoldBalanceChange(
-					address,
-					new BigNumber(balance.CELO?.plus(balance.lockedCELO) || "0")
-				);
-				this.monitorUSDBalanceChange(
-					address,
-					new BigNumber(balance.cUSD || "0")
-				);
-			}
+        // Record non-zero value metrics
+        const gold = weiToIntegerFloor(totalGold);
+        if (gold > 0) {
+          this.metrics.log("Gold", gold, this.addresses.alias(address));
+        }
+        const lockedGold = weiToIntegerFloor(totalLocked);
+        if (lockedGold > 0) {
+          this.metrics.log(
+            "LockedGold",
+            lockedGold,
+            this.addresses.alias(address)
+          );
+        }
+        const usd = weiToIntegerFloor(totalUsd);
+        if (usd > 0) {
+          this.metrics.log("USD", usd, this.addresses.alias(address));
+        }
+        // Monitor changing balances
+        this.monitorGoldBalanceChange(
+          address,
+          new BigNumber(balance.CELO?.plus(balance.lockedCELO) || "0")
+        );
+        this.monitorUSDBalanceChange(
+          address,
+          new BigNumber(balance.cUSD || "0")
+        );
+      }
 
-			// Record Total Metrics
-			this.metrics.log("TotalGold", weiToIntegerFloor(totalGold));
-			this.metrics.log("TotalLocked", weiToIntegerFloor(totalLocked));
-			this.metrics.log("TotalUSD", weiToIntegerFloor(totalUsd));
-			// Monitor Changing Totals
-			this.monitorGoldBalanceChange("Total Gold", totalGold.plus(totalLocked));
-			this.monitorUSDBalanceChange("Total USD", totalUsd);
+      // Record Total Metrics
+      this.metrics.log("TotalGold", weiToIntegerFloor(totalGold));
+      this.metrics.log("TotalLocked", weiToIntegerFloor(totalLocked));
+      this.metrics.log("TotalUSD", weiToIntegerFloor(totalUsd));
+      // Monitor Changing Totals
+      this.monitorGoldBalanceChange("Total Gold", totalGold.plus(totalLocked));
+      this.monitorUSDBalanceChange("Total USD", totalUsd);
 
-			this.updateEpochCache();
-		}
-	}
+      this.updateEpochCache();
+    }
+  }
 
-	/** Manage epoch state ourselves, since this monitor doesn't run every time */
-	isProcessingEpochChange() {
-		if (lastEpoch < 0) {
-			return false;
-		}
-		const currentEpoch = Math.floor(this.latestBlock.number / this.epochSize);
-		return lastEpoch != currentEpoch;
-	}
-	/** Update the last epoch that was processed */
-	updateEpochCache() {
-		const currentEpoch = Math.floor(this.latestBlock.number / this.epochSize);
-		lastEpoch = currentEpoch;
-	}
+  /** Manage epoch state ourselves, since this monitor doesn't run every time */
+  isProcessingEpochChange() {
+    if (lastEpoch < 0) {
+      return false;
+    }
+    const currentEpoch = Math.floor(this.latestBlock.number / this.epochSize);
+    return lastEpoch != currentEpoch;
+  }
+  /** Update the last epoch that was processed */
+  updateEpochCache() {
+    const currentEpoch = Math.floor(this.latestBlock.number / this.epochSize);
+    lastEpoch = currentEpoch;
+  }
 
-	async monitorGoldBalanceChange(address: string, balance: BigNumber) {
-		this.monitorBalanceChange(address, balance, goldBalanceCache, "", "cgld");
-	}
+  async monitorGoldBalanceChange(address: string, balance: BigNumber) {
+    this.monitorBalanceChange(address, balance, goldBalanceCache, "", "cgld");
+  }
 
-	async monitorUSDBalanceChange(address: string, balance: BigNumber) {
-		this.monitorBalanceChange(address, balance, usdBalanceCache, "$", "");
-	}
-	/** Monitor and record balance changes of the specified address */
-	async monitorBalanceChange(
-		address: string,
-		balance: BigNumber,
-		cache: Map<string, BigNumber>,
-		currencyPrefix = "",
-		currencySuffix = ""
-	) {
-		if (cache.has(address)) {
-			const lastBalance = cache.get(address) || new BigNumber(0);
-			const minDeltaToShow = this.isProcessingEpochChange()
-				? new BigNumber(1e18)
-				: new BigNumber(2e18);
+  async monitorUSDBalanceChange(address: string, balance: BigNumber) {
+    this.monitorBalanceChange(address, balance, usdBalanceCache, "$", "");
+  }
+  /** Monitor and record balance changes of the specified address */
+  async monitorBalanceChange(
+    address: string,
+    balance: BigNumber,
+    cache: Map<string, BigNumber>,
+    currencyPrefix = "",
+    currencySuffix = ""
+  ) {
+    if (cache.has(address)) {
+      const lastBalance = cache.get(address) || new BigNumber(0);
+      const minDeltaToShow = this.isProcessingEpochChange()
+        ? new BigNumber(1e18)
+        : new BigNumber(2e18);
 
-			// Ignore rounding errors
-			if (lastBalance.minus(balance).abs().isGreaterThan(minDeltaToShow)) {
-				const delta = lastBalance.minus(balance).abs();
-				const prettyDelta = weiToIntegerFloorCommas(delta);
-				const prettyBalance = weiToIntegerFloorCommas(balance);
-				const balanceIncreased = lastBalance.isLessThan(balance);
-				const deltaString = balanceIncreased ? "increased" : "decreased";
+      // Ignore rounding errors
+      if (lastBalance.minus(balance).abs().isGreaterThan(minDeltaToShow)) {
+        const delta = lastBalance.minus(balance).abs();
+        const prettyDelta = weiToIntegerFloorCommas(delta);
+        const prettyBalance = weiToIntegerFloorCommas(balance);
+        const balanceIncreased = lastBalance.isLessThan(balance);
+        const deltaString = balanceIncreased ? "increased" : "decreased";
 
-				// Record the delta metric
-				this.metrics.log(
-					`Delta${currencyPrefix}${currencySuffix}`,
-					weiToIntegerFloor(delta),
-					this.addresses.alias(address)
-				);
+        // Record the delta metric
+        this.metrics.log(
+          `Delta${currencyPrefix}${currencySuffix}`,
+          weiToIntegerFloor(delta),
+          this.addresses.alias(address)
+        );
 
-				// Let us know
-				const message =
-					`The Balance of \`${this.addresses.alias(address)}\` has` +
-					` ${deltaString} by \`${currencyPrefix}${prettyDelta}${currencySuffix}\`` +
-					` to \`${currencyPrefix}${prettyBalance}${currencySuffix}\`` +
-					`${this.getEpochTransitionString()}` +
-					` :money_with_wings: ${discordAddressDetails(address)}`;
+        // Let us know
+        const message =
+          `The Balance of \`${this.addresses.alias(address)}\` has` +
+          ` ${deltaString} by \`${currencyPrefix}${prettyDelta}${currencySuffix}\`` +
+          ` to \`${currencyPrefix}${prettyBalance}${currencySuffix}\`` +
+          `${this.getEpochTransitionString()}` +
+          ` :money_with_wings: ${discordAddressDetails(address)}`;
 
-				// When address is a `total` value, only show on epoch changes
-				const addressIsTotal = address.toLowerCase().startsWith("total");
-				if (addressIsTotal == this.isProcessingEpochChange()) {
-					if (balanceIncreased) {
-						await this.alert.discord(message, 60, message);
-					} else {
-						await this.alert.discordWarn(message);
-					}
-				}
-			}
-		}
-		cache.set(address, balance);
-	}
+        // When address is a `total` value, only show on epoch changes
+        const addressIsTotal = address.toLowerCase().startsWith("total");
+        if (addressIsTotal == this.isProcessingEpochChange()) {
+          if (balanceIncreased) {
+            await this.alert.discord(message, 60, message);
+          } else {
+            await this.alert.discordWarn(message);
+          }
+        }
+      }
+    }
+    cache.set(address, balance);
+  }
 
-	/** If the epoch is transitioning, return a human friendly string that indicates as much */
-	getEpochTransitionString(): string {
-		if (!this.isProcessingEpochChange()) {
-			return "";
-		}
-		return ` at epoch \`${Math.floor(
-			this.latestBlock.number / this.epochSize
-		)}\``;
-	}
+  /** If the epoch is transitioning, return a human friendly string that indicates as much */
+  getEpochTransitionString(): string {
+    if (!this.isProcessingEpochChange()) {
+      return "";
+    }
+    return ` at epoch \`${Math.floor(
+      this.latestBlock.number / this.epochSize
+    )}\``;
+  }
 }

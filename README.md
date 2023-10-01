@@ -54,7 +54,6 @@ Monitors can be enabled or disabled by commenting out desired monitors in `src/m
 * **Network Participation** - Monitor overall network participation numbers
 * **Node** - Monitor Celo node & network health
 * **Pending Votes** - Monitor our addresses for pending votes. Remind us to activate them
-* **Tobin Tax** - Remind us if/when the Tobin Tax is activated. Never send transactions when it is
 * **Validator** - Monitor the health of our validators
 
 ## Deployment
